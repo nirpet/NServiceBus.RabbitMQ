@@ -106,7 +106,7 @@
 
             var result = Consume(messageId, queueToReceiveOn);
 
-            var converter = new MessageConverter();
+            var converter = new MessageConverter(new DelayInfrastructure());
             var convertedHeaders = converter.RetrieveHeaders(result);
             var convertedMessageId = converter.RetrieveMessageId(result, convertedHeaders);
 

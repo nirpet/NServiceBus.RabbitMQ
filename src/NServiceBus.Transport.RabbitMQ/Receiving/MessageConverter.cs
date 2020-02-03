@@ -3,19 +3,24 @@
     using System;
     using System.Collections.Generic;
     using System.Text;
+    using DelayedDelivery;
     using global::RabbitMQ.Client.Events;
     using Logging;
 
     class MessageConverter
     {
-        public MessageConverter()
+        IDelayInfrastructure delayInfrastructure;
+
+        public MessageConverter(IDelayInfrastructure delayInfrastructure)
         {
+            this.delayInfrastructure = delayInfrastructure;
             messageIdStrategy = DefaultMessageIdStrategy;
         }
 
-        public MessageConverter(Func<BasicDeliverEventArgs, string> messageIdStrategy)
+        public MessageConverter(Func<BasicDeliverEventArgs, string> messageIdStrategy, IDelayInfrastructure delayInfrastructure)
         {
             this.messageIdStrategy = messageIdStrategy;
+            this.delayInfrastructure = delayInfrastructure;
         }
 
         public string RetrieveMessageId(BasicDeliverEventArgs message, Dictionary<string, string> headers)
@@ -38,11 +43,11 @@
             if (messageHeaders != null)
             {
                 //These headers need to be removed so that they won't be copied to an outgoing message if this message gets forwarded
-                messageHeaders.Remove(DelayInfrastructure.DelayHeader);
-                messageHeaders.Remove(DelayInfrastructure.XDeathHeader);
-                messageHeaders.Remove(DelayInfrastructure.XFirstDeathExchangeHeader);
-                messageHeaders.Remove(DelayInfrastructure.XFirstDeathQueueHeader);
-                messageHeaders.Remove(DelayInfrastructure.XFirstDeathReasonHeader);
+                messageHeaders.Remove(delayInfrastructure.DelayHeader);
+                messageHeaders.Remove(DelayInfrastructureSettings.XDeathHeader);
+                messageHeaders.Remove(DelayInfrastructureSettings.XFirstDeathExchangeHeader);
+                messageHeaders.Remove(DelayInfrastructureSettings.XFirstDeathQueueHeader);
+                messageHeaders.Remove(DelayInfrastructureSettings.XFirstDeathReasonHeader);
                 messageHeaders.Remove(BasicPropertiesExtensions.ConfirmationIdHeader);
             }
 

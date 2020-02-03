@@ -3,6 +3,7 @@ namespace NServiceBus.Transport.RabbitMQ
     using System;
     using System.Collections.Concurrent;
     using System.Threading.Tasks;
+    using DelayedDelivery;
     using global::RabbitMQ.Client;
     using Logging;
 
@@ -12,8 +13,8 @@ namespace NServiceBus.Transport.RabbitMQ
         {
             this.connectionFactory = connectionFactory;
             this.retryDelay = retryDelay;
-
             this.routingTopology = routingTopology;
+
             this.usePublisherConfirms = usePublisherConfirms;
 
             channels = new ConcurrentQueue<ConfirmsAwareChannel>();
@@ -57,13 +58,13 @@ namespace NServiceBus.Transport.RabbitMQ
             }
         }
 
-        public ConfirmsAwareChannel GetPublishChannel()
+        public ConfirmsAwareChannel GetPublishChannel(DelayInfrastructure delayInfrastructure = null)
         {
             if (!channels.TryDequeue(out var channel) || channel.IsClosed)
             {
                 channel?.Dispose();
 
-                channel = new ConfirmsAwareChannel(connection, routingTopology, usePublisherConfirms);
+                channel = new ConfirmsAwareChannel(connection, routingTopology, usePublisherConfirms, delayInfrastructure);
             }
 
             return channel;

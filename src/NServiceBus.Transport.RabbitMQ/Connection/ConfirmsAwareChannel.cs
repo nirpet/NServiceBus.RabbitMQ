@@ -4,6 +4,7 @@ namespace NServiceBus.Transport.RabbitMQ
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Threading.Tasks;
+    using DelayedDelivery;
     using global::RabbitMQ.Client;
     using global::RabbitMQ.Client.Events;
     using Logging;
@@ -18,6 +19,28 @@ namespace NServiceBus.Transport.RabbitMQ
             this.routingTopology = routingTopology;
 
             this.usePublisherConfirms = usePublisherConfirms;
+
+            if (usePublisherConfirms)
+            {
+                channel.ConfirmSelect();
+
+                channel.BasicAcks += Channel_BasicAcks;
+                channel.BasicNacks += Channel_BasicNacks;
+                channel.ModelShutdown += Channel_ModelShutdown;
+
+                messages = new ConcurrentDictionary<ulong, TaskCompletionSource<bool>>();
+            }
+        }
+
+        public ConfirmsAwareChannel(IConnection connection, IRoutingTopology routingTopology, bool usePublisherConfirms, IDelayInfrastructure delayInfrastructure)
+        {
+            channel = connection.CreateModel();
+            channel.BasicReturn += Channel_BasicReturn;
+
+            this.routingTopology = routingTopology;
+
+            this.usePublisherConfirms = usePublisherConfirms;
+            this.delayInfrastructure = delayInfrastructure;
 
             if (usePublisherConfirms)
             {
@@ -51,12 +74,11 @@ namespace NServiceBus.Transport.RabbitMQ
                 task = TaskEx.CompletedTask;
             }
 
-            if (properties.Headers.TryGetValue(DelayInfrastructure.DelayHeader, out var delayValue))
+            if (delayInfrastructure != null && properties.Headers.TryGetValue(delayInfrastructure.DelayHeader, out var delayValue))
             {
-                var routingKey = DelayInfrastructure.CalculateRoutingKey((int)delayValue, address, out var startingDelayLevel);
+                routingTopology.BindToDelayInfrastructure(channel, address, delayInfrastructure.DeliveryExchange, delayInfrastructure.BindingKey(address));
 
-                routingTopology.BindToDelayInfrastructure(channel, address, DelayInfrastructure.DeliveryExchange, DelayInfrastructure.BindingKey(address));
-                channel.BasicPublish(DelayInfrastructure.LevelName(startingDelayLevel), routingKey, true, properties, message.Body);
+                delayInfrastructure.SendMessageInDelay(channel, message, properties, (int)delayValue, address);
             }
             else
             {
@@ -208,6 +230,7 @@ namespace NServiceBus.Transport.RabbitMQ
         IModel channel;
 
         readonly IRoutingTopology routingTopology;
+        readonly IDelayInfrastructure delayInfrastructure;
         readonly bool usePublisherConfirms;
         readonly ConcurrentDictionary<ulong, TaskCompletionSource<bool>> messages;
 

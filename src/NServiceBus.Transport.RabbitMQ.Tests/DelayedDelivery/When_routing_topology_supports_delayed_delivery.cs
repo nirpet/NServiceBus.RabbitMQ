@@ -2,6 +2,7 @@
 {
     using Features;
     using NUnit.Framework;
+    using RabbitMQ.DelayedDelivery;
     using Settings;
 
     [TestFixture]
@@ -20,7 +21,7 @@
         [Test]
         public void Should_allow_startup_if_EnableTimeoutManager_setting_is_not_set()
         {
-            var result = DelayInfrastructure.CheckForInvalidSettings(settings);
+            var result = DelayInfrastructureSettings.CheckForInvalidSettings(settings);
 
             Assert.True(result.Succeeded);
         }
@@ -30,7 +31,7 @@
         {
             settings.Set(typeof(TimeoutManager).FullName, FeatureState.Disabled);
 
-            var result = DelayInfrastructure.CheckForInvalidSettings(settings);
+            var result = DelayInfrastructureSettings.CheckForInvalidSettings(settings);
 
             Assert.True(result.Succeeded);
         }
@@ -40,7 +41,7 @@
         {
             settings.Set(typeof(TimeoutManager).FullName, FeatureState.Deactivated);
 
-            var result = DelayInfrastructure.CheckForInvalidSettings(settings);
+            var result = DelayInfrastructureSettings.CheckForInvalidSettings(settings);
 
             Assert.True(result.Succeeded);
         }
@@ -51,7 +52,7 @@
             settings.Set(SettingsKeys.EnableTimeoutManager, true);
             settings.Set(typeof(TimeoutManager).FullName, FeatureState.Active);
 
-            var result = DelayInfrastructure.CheckForInvalidSettings(settings);
+            var result = DelayInfrastructureSettings.CheckForInvalidSettings(settings);
 
             Assert.True(result.Succeeded);
         }
@@ -62,7 +63,7 @@
             settings.Set(SettingsKeys.EnableTimeoutManager, true);
             settings.Set(typeof(TimeoutManager).FullName, FeatureState.Disabled);
 
-            var result = DelayInfrastructure.CheckForInvalidSettings(settings);
+            var result = DelayInfrastructureSettings.CheckForInvalidSettings(settings);
 
             Assert.False(result.Succeeded);
             Assert.AreEqual("The transport has been configured to enable the timeout manager, but the timeout manager is not active." +
@@ -75,7 +76,7 @@
             settings.Set(SettingsKeys.EnableTimeoutManager, true);
             settings.Set(typeof(TimeoutManager).FullName, FeatureState.Deactivated);
 
-            var result = DelayInfrastructure.CheckForInvalidSettings(settings);
+            var result = DelayInfrastructureSettings.CheckForInvalidSettings(settings);
 
             Assert.False(result.Succeeded);
             Assert.AreEqual("The transport has been configured to enable the timeout manager, but the timeout manager is not active." +

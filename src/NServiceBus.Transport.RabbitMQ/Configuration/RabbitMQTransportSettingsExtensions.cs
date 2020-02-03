@@ -5,6 +5,7 @@
     using Configuration.AdvancedExtensibility;
     using RabbitMQ.Client.Events;
     using Transport.RabbitMQ;
+    using Transport.RabbitMQ.DelayedDelivery;
 
     /// <summary>
     /// Adds access to the RabbitMQ transport config to the global Transports object.
@@ -61,6 +62,18 @@
         public static TransportExtensions<RabbitMQTransport> CustomMessageIdStrategy(this TransportExtensions<RabbitMQTransport> transportExtensions, Func<BasicDeliverEventArgs, string> customIdStrategy)
         {
             transportExtensions.GetSettings().Set(SettingsKeys.CustomMessageIdStrategy, customIdStrategy);
+            return transportExtensions;
+        }
+
+        /// <summary>
+        /// Allows the user to control how the message delivery is delayed.
+        /// </summary>
+        /// <param name="transportExtensions"></param>
+        /// <param name="delayInfrastructure">The user-defined strategy for delaying a message delivery.</param>
+        /// <returns></returns>
+        public static TransportExtensions<RabbitMQTransport> CustomDelayInfrastructure(this TransportExtensions<RabbitMQTransport> transportExtensions, IDelayInfrastructure delayInfrastructure)
+        {
+            transportExtensions.GetSettings().Set(SettingsKeys.UseCustomDelayInfrastructure, delayInfrastructure);
             return transportExtensions;
         }
 

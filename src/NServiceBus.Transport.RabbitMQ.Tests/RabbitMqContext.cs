@@ -16,6 +16,7 @@
         public void SetUp()
         {
             routingTopology = new ConventionalRoutingTopology(true);
+            delayInfrastructure = new DelayInfrastructure();
             receivedMessages = new BlockingCollection<IncomingMessage>();
 
             var connectionString = Environment.GetEnvironmentVariable("RabbitMQTransport_ConnectionString");
@@ -31,13 +32,13 @@
             channelProvider = new ChannelProvider(connectionFactory, config.RetryDelay, routingTopology, true);
             channelProvider.CreateConnection();
 
-            messageDispatcher = new MessageDispatcher(channelProvider);
+            messageDispatcher = new MessageDispatcher(channelProvider, delayInfrastructure);
 
             var purger = new QueuePurger(connectionFactory);
 
-            messagePump = new MessagePump(connectionFactory, new MessageConverter(), "Unit test", channelProvider, purger, TimeSpan.FromMinutes(2), 3, 0);
+            messagePump = new MessagePump(connectionFactory, new MessageConverter(delayInfrastructure), "Unit test", channelProvider, purger, TimeSpan.FromMinutes(2), 3, 0);
 
-            routingTopology.Reset(connectionFactory, new[] { ReceiverQueue }.Concat(AdditionalReceiverQueues), new[] { ErrorQueue });
+            routingTopology.Reset(connectionFactory, delayInfrastructure, new[] { ReceiverQueue }.Concat(AdditionalReceiverQueues), new[] { ErrorQueue });
 
             subscriptionManager = new SubscriptionManager(connectionFactory, routingTopology, ReceiverQueue);
 
@@ -89,6 +90,7 @@
         ChannelProvider channelProvider;
         BlockingCollection<IncomingMessage> receivedMessages;
         ConventionalRoutingTopology routingTopology;
+        DelayInfrastructure delayInfrastructure;
 
         static readonly TimeSpan incomingMessageTimeout = TimeSpan.FromSeconds(1);
     }

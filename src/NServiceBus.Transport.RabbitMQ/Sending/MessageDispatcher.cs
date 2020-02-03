@@ -2,15 +2,18 @@
 {
     using System.Collections.Generic;
     using System.Threading.Tasks;
+    using DelayedDelivery;
     using Extensibility;
 
     class MessageDispatcher : IDispatchMessages
     {
         readonly ChannelProvider channelProvider;
+        readonly IDelayInfrastructure delayInfrastructure;
 
-        public MessageDispatcher(ChannelProvider channelProvider)
+        public MessageDispatcher(ChannelProvider channelProvider, IDelayInfrastructure delayInfrastructure)
         {
             this.channelProvider = channelProvider;
+            this.delayInfrastructure = delayInfrastructure;
         }
 
         public Task Dispatch(TransportOperations outgoingMessages, TransportTransaction transaction, ContextBag context)
@@ -50,7 +53,8 @@
             var message = transportOperation.Message;
 
             var properties = channel.CreateBasicProperties();
-            properties.Fill(message, transportOperation.DeliveryConstraints, out var destination);
+            properties.Fill(message, transportOperation.DeliveryConstraints, delayInfrastructure.DelayHeader,
+                delayInfrastructure.MaxDelayInSeconds, out var destination);
 
             return channel.SendMessage(destination ?? transportOperation.Destination, message, properties);
         }
@@ -60,7 +64,8 @@
             var message = transportOperation.Message;
 
             var properties = channel.CreateBasicProperties();
-            properties.Fill(message, transportOperation.DeliveryConstraints, out _);
+            properties.Fill(message, transportOperation.DeliveryConstraints, delayInfrastructure.DelayHeader,
+                delayInfrastructure.MaxDelayInSeconds, out _);
 
             return channel.PublishMessage(transportOperation.MessageType, message, properties);
         }

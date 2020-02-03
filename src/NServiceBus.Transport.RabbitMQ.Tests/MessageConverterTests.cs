@@ -10,7 +10,7 @@
     [TestFixture]
     class MessageConverterTests
     {
-        MessageConverter converter = new MessageConverter();
+        MessageConverter converter = new MessageConverter(new DelayInfrastructure());
 
         [Test]
         public void TestCanHandleNoInterestingProperties()
@@ -46,7 +46,7 @@
         [Test]
         public void Should_throw_exception_when_using_custom_strategy_and_no_message_id_is_returned()
         {
-            var customConverter = new MessageConverter(args => "");
+            var customConverter = new MessageConverter(args => "", new DelayInfrastructure());
 
             var message = new BasicDeliverEventArgs
             {
@@ -61,7 +61,7 @@
         [Test]
         public void Should_fall_back_to_message_id_header_when_custom_strategy_returns_empty_string()
         {
-            var customConverter = new MessageConverter(args => "");
+            var customConverter = new MessageConverter(args => "", new DelayInfrastructure());
 
             var message = new BasicDeliverEventArgs
             {

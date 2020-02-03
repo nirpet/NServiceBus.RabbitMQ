@@ -7,6 +7,7 @@
     using System.Threading.Tasks;
     using DelayedDelivery;
     using global::RabbitMQ.Client.Events;
+    using NServiceBus.DelayedDelivery;
     using Performance.TimeToBeReceived;
     using Routing;
     using Settings;
@@ -19,6 +20,7 @@
         readonly SettingsHolder settings;
         readonly ConnectionFactory connectionFactory;
         readonly ChannelProvider channelProvider;
+        readonly IDelayInfrastructure delayInfrastructure;
         IRoutingTopology routingTopology;
 
         public RabbitMQTransportInfrastructure(SettingsHolder settings, string connectionString)
@@ -32,6 +34,16 @@
             settings.TryGet(SettingsKeys.UseExternalAuthMechanism, out bool useExternalAuthMechanism);
 
             connectionFactory = new ConnectionFactory(endpointName, connectionConfiguration, clientCertificates, disableRemoteCertificateValidation, useExternalAuthMechanism);
+
+            if (settings.TryGet(SettingsKeys.UseCustomDelayInfrastructure, out IDelayInfrastructure customDelayInfrastructure))
+            {
+                delayInfrastructure = customDelayInfrastructure;
+            }
+            else
+            {
+                delayInfrastructure = new DelayInfrastructure();
+            }
+
 
             routingTopology = CreateRoutingTopology();
 
@@ -55,15 +67,15 @@
         {
             return new TransportReceiveInfrastructure(
                     () => CreateMessagePump(),
-                    () => new QueueCreator(connectionFactory, routingTopology),
+                    () => new QueueCreator(connectionFactory, routingTopology, delayInfrastructure),
                     () => Task.FromResult(StartupCheckResult.Success));
         }
 
         public override TransportSendInfrastructure ConfigureSendInfrastructure()
         {
             return new TransportSendInfrastructure(
-                () => new MessageDispatcher(channelProvider),
-                () => Task.FromResult(DelayInfrastructure.CheckForInvalidSettings(settings)));
+                () => new MessageDispatcher(channelProvider, delayInfrastructure),
+                () => Task.FromResult(DelayInfrastructureSettings.CheckForInvalidSettings(settings)));
         }
 
         public override TransportSubscriptionInfrastructure ConfigureSubscriptionInfrastructure()
@@ -126,11 +138,11 @@
 
             if (settings.HasSetting(SettingsKeys.CustomMessageIdStrategy))
             {
-                messageConverter = new MessageConverter(settings.Get<Func<BasicDeliverEventArgs, string>>(SettingsKeys.CustomMessageIdStrategy));
+                messageConverter = new MessageConverter(settings.Get<Func<BasicDeliverEventArgs, string>>(SettingsKeys.CustomMessageIdStrategy), delayInfrastructure);
             }
             else
             {
-                messageConverter = new MessageConverter();
+                messageConverter = new MessageConverter(delayInfrastructure);
             }
 
             if (!settings.TryGet(coreHostInformationDisplayNameKey, out string hostDisplayName))

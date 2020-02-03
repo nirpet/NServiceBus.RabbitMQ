@@ -3,11 +3,14 @@ using System.Linq;
 
 namespace NServiceBus.Transport.RabbitMQ.Tests.Support
 {
+    using RabbitMQ.DelayedDelivery;
+
     static class ConventionalRoutingTopologyExtensions
     {
         public static void Reset(
             this ConventionalRoutingTopology routingTopology,
             ConnectionFactory connectionFactory,
+            IDelayInfrastructure delayInfrastructure,
             IEnumerable<string> receivingAddresses,
             IEnumerable<string> sendingAddresses)
         {
@@ -20,8 +23,8 @@ namespace NServiceBus.Transport.RabbitMQ.Tests.Support
                     channel.ExchangeDelete(address, false);
                 }
 
-                DelayInfrastructure.TearDown(channel);
-                DelayInfrastructure.Build(channel);
+                delayInfrastructure.TearDown(channel);
+                delayInfrastructure.Build(channel);
 
                 routingTopology.Initialize(channel, receivingAddresses, sendingAddresses);
             }

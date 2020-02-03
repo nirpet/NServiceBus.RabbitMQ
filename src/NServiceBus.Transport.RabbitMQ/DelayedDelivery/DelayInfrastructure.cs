@@ -4,28 +4,21 @@
     using System.Collections;
     using System.Collections.Generic;
     using System.Text;
+    using DelayedDelivery;
     using Features;
     using global::RabbitMQ.Client;
-    using Settings;
 
-    static class DelayInfrastructure
+    sealed class DelayInfrastructure : IDelayInfrastructure
     {
         const int maxNumberOfBitsToUse = 28;
         const int maxLevel = maxNumberOfBitsToUse - 1;
 
-        public const int MaxDelayInSeconds = (1 << maxNumberOfBitsToUse) - 1;
-        public const string DelayHeader = "NServiceBus.Transport.RabbitMQ.DelayInSeconds";
-        public const string XDeathHeader = "x-death";
-        public const string XFirstDeathExchangeHeader = "x-first-death-exchange";
-        public const string XFirstDeathQueueHeader = "x-first-death-queue";
-        public const string XFirstDeathReasonHeader = "x-first-death-reason";
-        public const string DeliveryExchange = "nsb.delay-delivery";
+        public int MaxDelayInSeconds => (1 << maxNumberOfBitsToUse) - 1;
+        public string DelayHeader => "NServiceBus.Transport.RabbitMQ.DelayInSeconds";
+        public string DeliveryExchange => "nsb.delay-delivery";
+        public string BindingKey(string address) => $"#.{address}";
 
-        public static string LevelName(int level) => $"nsb.delay-level-{level:D2}";
-
-        public static string BindingKey(string address) => $"#.{address}";
-
-        public static void Build(IModel channel)
+        public void Build(IModel channel)
         {
             var bindingKey = "1.#";
 
@@ -65,7 +58,7 @@
             channel.ExchangeBind(DeliveryExchange, LevelName(0), bindingKey);
         }
 
-        public static void TearDown(IModel channel)
+        public void TearDown(IModel channel)
         {
             channel.ExchangeDelete(DeliveryExchange);
 
@@ -78,21 +71,15 @@
             }
         }
 
-        public static StartupCheckResult CheckForInvalidSettings(SettingsHolder settings)
+        public void SendMessageInDelay(IModel channel, OutgoingMessage message, IBasicProperties properties, int delayValue, string address)
         {
-            var timeoutManagerShouldBeEnabled = settings.GetOrDefault<bool>(SettingsKeys.EnableTimeoutManager);
-            var timeoutManagerFeatureActive = settings.GetOrDefault<FeatureState>(typeof(TimeoutManager).FullName) == FeatureState.Active;
-
-            if (timeoutManagerShouldBeEnabled && !timeoutManagerFeatureActive)
-            {
-                return StartupCheckResult.Failed("The transport has been configured to enable the timeout manager, but the timeout manager is not active." +
-                    "Ensure that the timeout manager is active or remove the call to 'EndpointConfiguration.UseTransport<RabbitMQTransport>().DelayedDelivery().EnableTimeoutManager()'.");
-            }
-
-            return StartupCheckResult.Success;
+            var routingKey = CalculateRoutingKey(delayValue, address, out var startingDelayLevel);
+            channel.BasicPublish(LevelName(startingDelayLevel), routingKey, true, properties, message.Body);
         }
 
-        public static string CalculateRoutingKey(int delayInSeconds, string address, out int startingDelayLevel)
+        static string LevelName(int level) => $"nsb.delay-level-{level:D2}";
+
+        static string CalculateRoutingKey(int delayInSeconds, string address, out int startingDelayLevel)
         {
             if (delayInSeconds < 0)
             {

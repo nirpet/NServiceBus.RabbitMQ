@@ -12,5 +12,6 @@
         public const string UseExternalAuthMechanism = "RabbitMQ.UseExternalAuthMechanism";
         public const string EnableTimeoutManager = "NServiceBus.TimeoutManager.EnableMigrationMode";
         public const string UseDurableExchangesAndQueues = "RabbitMQ.UseDurableExchangesAndQueues";
+        public const string UseCustomDelayInfrastructure = "RabbitMQ.UseCustomDelayInfrastructure";
     }
 }

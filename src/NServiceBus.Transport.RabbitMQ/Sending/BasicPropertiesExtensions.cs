@@ -5,14 +5,15 @@
     using System.Globalization;
     using System.Linq;
     using System.Text;
-    using DelayedDelivery;
     using DeliveryConstraints;
     using global::RabbitMQ.Client;
+    using NServiceBus.DelayedDelivery;
     using Performance.TimeToBeReceived;
 
     static class BasicPropertiesExtensions
     {
-        public static void Fill(this IBasicProperties properties, OutgoingMessage message, List<DeliveryConstraint> deliveryConstraints, out string destination)
+        public static void Fill(this IBasicProperties properties, OutgoingMessage message, List<DeliveryConstraint> deliveryConstraints,
+            string delayHeader, int maxDelayInSeconds, out string destination)
         {
             if (message.MessageId != null)
             {
@@ -23,13 +24,13 @@
 
             var messageHeaders = message.Headers ?? new Dictionary<string, string>();
 
-            var delayed = CalculateDelay(deliveryConstraints, out var delay, out destination);
+            var delayed = CalculateDelay(deliveryConstraints, maxDelayInSeconds, out var delay, out destination);
 
             properties.Headers = messageHeaders.ToDictionary(p => p.Key, p => (object)p.Value);
 
             if (delayed)
             {
-                properties.Headers[DelayInfrastructure.DelayHeader] = Convert.ToInt32(delay);
+                properties.Headers[delayHeader] = Convert.ToInt32(delay);
             }
 
             if (deliveryConstraints.TryGet(out DiscardIfNotReceivedBefore timeToBeReceived) && timeToBeReceived.MaxTime < TimeSpan.MaxValue)
@@ -77,7 +78,7 @@
             }
         }
 
-        static bool CalculateDelay(List<DeliveryConstraint> deliveryConstraints, out long delay, out string destination)
+        static bool CalculateDelay(List<DeliveryConstraint> deliveryConstraints, int maxDelayInSeconds, out long delay, out string destination)
         {
             destination = null;
 
@@ -89,9 +90,9 @@
                 delayed = true;
                 delay = Convert.ToInt64(Math.Ceiling((doNotDeliverBefore.At - DateTime.UtcNow).TotalSeconds));
 
-                if (delay > DelayInfrastructure.MaxDelayInSeconds)
+                if (delay > maxDelayInSeconds)
                 {
-                    throw new Exception($"Message cannot be sent with {nameof(DoNotDeliverBefore)} value '{doNotDeliverBefore.At}' because it exceeds the maximum delay value '{TimeSpan.FromSeconds(DelayInfrastructure.MaxDelayInSeconds)}'.");
+                    throw new Exception($"Message cannot be sent with {nameof(DoNotDeliverBefore)} value '{doNotDeliverBefore.At}' because it exceeds the maximum delay value '{TimeSpan.FromSeconds(maxDelayInSeconds)}'.");
                 }
 
             }
@@ -100,9 +101,9 @@
                 delayed = true;
                 delay = Convert.ToInt64(Math.Ceiling(delayDeliveryWith.Delay.TotalSeconds));
 
-                if (delay > DelayInfrastructure.MaxDelayInSeconds)
+                if (delay > maxDelayInSeconds)
                 {
-                    throw new Exception($"Message cannot be sent with {nameof(DelayDeliveryWith)} value '{delayDeliveryWith.Delay}' because it exceeds the maximum delay value '{TimeSpan.FromSeconds(DelayInfrastructure.MaxDelayInSeconds)}'.");
+                    throw new Exception($"Message cannot be sent with {nameof(DelayDeliveryWith)} value '{delayDeliveryWith.Delay}' because it exceeds the maximum delay value '{TimeSpan.FromSeconds(maxDelayInSeconds)}'.");
                 }
             }
 
