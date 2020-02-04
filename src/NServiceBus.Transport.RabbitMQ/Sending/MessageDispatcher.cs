@@ -18,7 +18,7 @@
 
         public Task Dispatch(TransportOperations outgoingMessages, TransportTransaction transaction, ContextBag context)
         {
-            var channel = channelProvider.GetPublishChannel();
+            var channel = channelProvider.GetPublishChannel(delayInfrastructure);
 
             try
             {

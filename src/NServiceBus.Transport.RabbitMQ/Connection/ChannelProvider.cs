@@ -58,7 +58,7 @@ namespace NServiceBus.Transport.RabbitMQ
             }
         }
 
-        public ConfirmsAwareChannel GetPublishChannel(DelayInfrastructure delayInfrastructure = null)
+        public ConfirmsAwareChannel GetPublishChannel(IDelayInfrastructure delayInfrastructure = null)
         {
             if (!channels.TryDequeue(out var channel) || channel.IsClosed)
             {
